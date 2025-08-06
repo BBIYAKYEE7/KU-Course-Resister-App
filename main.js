@@ -36,21 +36,43 @@ async function createWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     applyTheme();
-    createServerTimeOverlay();
+    // 인라인 서버시간 즉시 생성
+    try {
+      console.log('Creating inline server time immediately...');
+      createInlineServerTime();
+    } catch (error) {
+      console.error('Inline server time creation error:', error);
+    }
   });
 
-  // 페이지 로드 완료 시 폰트만 적용 (자동로그인은 정각에만)
+  // 페이지 로드 완료 시 폰트 적용 및 로그인 폼 미리 입력
   mainWindow.webContents.on('did-finish-load', () => {
-    console.log('페이지 로드 완료 - 폰트 적용');
+    console.log('페이지 로드 완료 - 폰트 적용 및 로그인 폼 미리 입력');
     applyPretendardFont();
+    
+    // 저장된 로그인 정보가 있으면 로그인 폼만 미리 입력 (자동 제출 안함)
+    if (store.get('userLoginInfo')) {
+      setTimeout(() => {
+        console.log('페이지 로드 완료 - 로그인 폼 미리 입력');
+        injectFormFillOnly();
+      }, 1000); // 1초 후 폼 입력
+    }
   });
 
-  // DOM 준비 완료 시에도 폰트만 적용
+  // DOM 준비 완료 시에도 로그인 폼 미리 입력
   mainWindow.webContents.on('dom-ready', () => {
-    console.log('DOM 준비 완료 - 대기 중 (자동로그인은 정각에만 실행)');
+    console.log('DOM 준비 완료 - 로그인 폼 미리 입력');
+    
+    // 저장된 로그인 정보가 있으면 로그인 폼만 미리 입력 (자동 제출 안함)
+    if (store.get('userLoginInfo')) {
+      setTimeout(() => {
+        console.log('DOM 준비 완료 - 로그인 폼 미리 입력');
+        injectFormFillOnly();
+      }, 500); // 0.5초 후 폼 입력
+    }
   });
 
-  // 매 정각마다 자동 로그인 설정
+  // 매 정각마다 자동 로그인 설정 (하이브리드 모드)
   setupHourlyAutoLogin();
 
   // 윈도우가 닫힐 때
@@ -89,9 +111,9 @@ app.on('activate', () => {
   }
 });
 
-// 매 정각마다 자동 로그인 설정
+// 하이브리드 자동 로그인 시스템 (정각에만 자동 제출)
 function setupHourlyAutoLogin() {
-  console.log('✅ 매 정각 자동로그인 시스템 활성화 (페이지 로드 시 자동로그인 비활성화)');
+  console.log('✅ 하이브리드 자동로그인 시스템 활성화 - 폼 미리 입력 + 정각 자동 제출');
   
   // 다음 정각까지의 시간 계산 함수
   function getMillisecondsUntilNextHour() {
@@ -101,15 +123,15 @@ function setupHourlyAutoLogin() {
     return nextHour.getTime() - now.getTime();
   }
   
-  // 자동 로그인 실행 함수
+  // 정각 자동 로그인 실행 함수 (완전 자동 제출)
   function executeHourlyAutoLogin() {
     const currentTime = new Date().toLocaleTimeString();
-    console.log(currentTime + ' - 정각 자동로그인 실행');
+    console.log(currentTime + ' - 정각 자동로그인 실행 (완전 자동)');
     
     // 메인 윈도우가 존재하고 로그인 정보가 있는 경우에만 실행
     if (mainWindow && mainWindow.webContents && store.get('userLoginInfo')) {
       try {
-        injectEnhancements();
+        injectEnhancements(); // 완전 자동 로그인 (폼 입력 + 자동 제출)
         console.log('정각 자동로그인 완료');
       } catch (error) {
         console.log('정각 자동로그인 중 오류:', error.message);
@@ -122,7 +144,7 @@ function setupHourlyAutoLogin() {
   // 첫 번째 정각까지 대기 후 실행, 그 이후 매시 반복
   const timeUntilNextHour = getMillisecondsUntilNextHour();
   const minutesUntilNextHour = Math.round(timeUntilNextHour / 1000 / 60);
-  console.log('다음 정각까지 ' + minutesUntilNextHour + '분 대기 중...');
+  console.log('다음 정각까지 ' + minutesUntilNextHour + '분 대기 중... (그 전까지는 폼만 미리 입력됨)');
   
   setTimeout(() => {
     executeHourlyAutoLogin();
@@ -153,6 +175,67 @@ function createMenu() {
           accelerator: 'CmdOrCtrl+T',
           click: () => {
             showServerTime();
+          }
+        },
+        {
+          label: '서버시간 표시 토글',
+          click: () => {
+            try {
+              mainWindow.webContents.executeJavaScript(`
+                const timeElement = document.getElementById('inline-server-time');
+                if (timeElement) {
+                  if (timeElement.style.display === 'none') {
+                    timeElement.style.display = 'block';
+                    console.log('Inline time shown');
+                  } else {
+                    timeElement.style.display = 'none';
+                    console.log('Inline time hidden');
+                  }
+                } else {
+                  console.log('Inline time element not found');
+                }
+              `);
+              // 메인 윈도우에 포커스 복원
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.focus();
+              }
+            } catch (error) {
+              console.error('Time toggle error:', error);
+            }
+          }
+        },
+        {
+          label: '서버시간 표시 재생성',
+          click: () => {
+            try {
+              console.log('Recreating inline time...');
+              createInlineServerTime();
+              // 메인 윈도우에 포커스 복원
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.focus();
+              }
+            } catch (error) {
+              console.error('Recreate time error:', error);
+            }
+          }
+        },
+        {
+          label: '서버시간 표시 제거',
+          click: () => {
+            try {
+              mainWindow.webContents.executeJavaScript(`
+                if (window.clearInlineServerTime) {
+                  window.clearInlineServerTime();
+                  console.log('Inline time completely removed');
+                }
+              `);
+              // 메인 윈도우에 포커스 복원
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.focus();
+              }
+            } catch (error) {
+              console.error('Remove time error:', error);
+            }
           }
         },
         { type: 'separator' },
@@ -191,9 +274,20 @@ function createMenu() {
           }
         },
         {
-          label: '지금 로그인',
+          label: '폼 미리 입력',
           click: () => {
-            console.log('수동 로그인 실행');
+            console.log('수동 폼 입력 실행');
+            if (mainWindow && mainWindow.webContents && store.get('userLoginInfo')) {
+              injectFormFillOnly();
+            } else {
+              console.log('로그인 정보가 없습니다. 먼저 로그인 정보를 설정해주세요.');
+            }
+          }
+        },
+        {
+          label: '지금 완전 로그인',
+          click: () => {
+            console.log('수동 완전 로그인 실행');
             if (mainWindow && mainWindow.webContents && store.get('userLoginInfo')) {
               injectEnhancements();
             } else {
@@ -266,10 +360,32 @@ function applyTheme() {
   const isDarkMode = store.get('darkMode', false);
   
   if (mainWindow && mainWindow.webContents) {
+    // 공통 CSS - 포커스 테두리 제거
+    const commonCSS = `
+      /* 모든 포커스 테두리 완전 제거 */
+      *, *:focus, *:active, *:hover, *:visited {
+        outline: none !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+      
+      /* Electron 윈도우 포커스 테두리 제거 */
+      html, body {
+        outline: none !important;
+        border: none !important;
+      }
+      
+      /* WebView 포커스 테두리 제거 */
+      webview, iframe {
+        outline: none !important;
+        border: none !important;
+      }
+    `;
+    
     if (isDarkMode) {
       console.log('다크모드 활성화 중...');
       // 더 강력하고 자연스러운 다크 모드 CSS
-      const darkCSS = `
+      const darkCSS = commonCSS + `
         /* 전체 페이지 다크모드 */
         html, body {
           background-color: #1a1a1a !important;
@@ -401,8 +517,13 @@ function applyTheme() {
       }, 1000);
       
     } else {
-      console.log('라이트모드로 복원 중...');
-      // 다크모드 스타일 제거
+      console.log('라이트모드 활성화 중...');
+      // 라이트모드에서도 공통 CSS (포커스 테두리 제거) 적용
+      const lightCSS = commonCSS;
+      
+      mainWindow.webContents.insertCSS(lightCSS);
+      
+      // 기존 다크모드 스타일 제거
       mainWindow.webContents.executeJavaScript(`
         try {
           const darkStyles = document.querySelectorAll('style[data-dark-mode]');
@@ -420,11 +541,6 @@ function applyTheme() {
           console.log('다크모드 제거 실패:', e.message);
         }
       `);
-      
-      // 페이지 새로고침으로 완전 복원
-      setTimeout(() => {
-        mainWindow.reload();
-      }, 500);
     }
   }
 }
@@ -552,7 +668,270 @@ async function showServerTime() {
   }
 }
 
-// 페이지 개선사항 주입
+// 로그인 폼만 미리 입력하는 함수 (자동 제출 없음)
+function injectFormFillOnly() {
+  if (!mainWindow || !mainWindow.webContents) return;
+
+  // 저장된 로그인 정보 가져오기
+  const savedLoginInfo = store.get('userLoginInfo', null);
+  console.log('로그인 폼 미리 입력 시작 (자동 제출 없음)');
+  
+  const script = `
+    (function() {
+      // 보안 강화: 로그인 정보를 클로저로 보호
+      const getLoginInfo = (function() {
+        const data = ${JSON.stringify(savedLoginInfo)};
+        return function() {
+          return data;
+        };
+      })();
+      
+      // 임시 변수 사용 후 즉시 정리
+      const savedLogin = getLoginInfo();
+      
+      if (!savedLogin || !savedLogin.username || !savedLogin.password) {
+        console.log('저장된 로그인 정보가 없습니다.');
+        return;
+      }
+
+      // 메인 페이지에서 로그인 폼을 여는 버튼/링크 클릭 함수
+      function clickLoginButton() {
+        const loginSelectors = [
+          'button[id="btn-login"]',
+          'button.btn-login',
+          '.btn-login',
+          '#btn-login',
+          'button[type="button"]',
+          'a[href*="login"]',
+          'a[href*="Login"]', 
+          'button[onclick*="login"]',
+          'a[onclick*="login"]',
+          'input[value*="로그인"]',
+          'button[title*="로그인"]',
+          'a[title*="로그인"]'
+        ];
+        
+        let loginButton = null;
+        
+        for (const selector of loginSelectors) {
+          try {
+            loginButton = document.querySelector(selector);
+            if (loginButton && loginButton.offsetParent !== null) {
+              break;
+            }
+          } catch (e) {
+            // continue
+          }
+        }
+        
+        if (!loginButton) {
+          const allClickables = document.querySelectorAll('a, button, input[type="button"], input[type="submit"], div[onclick], span[onclick], li, td, div[class*="menu"], span[class*="menu"]');
+          for (let element of allClickables) {
+            const text = (element.textContent || element.innerText || element.value || element.title || '').toLowerCase().trim();
+            if ((text.includes('로그인') || text.includes('login')) && element.offsetParent !== null) {
+              loginButton = element;
+              break;
+            }
+          }
+        }
+        
+        if (loginButton) {
+          try {
+            loginButton.click();
+            console.log('로그인 버튼 클릭 완료 (폼 표시용)');
+            return true;
+          } catch (e) {
+            console.error('로그인 버튼 클릭 실패:', e);
+            return false;
+          }
+        } else {
+          console.log('로그인 버튼을 찾을 수 없습니다.');
+          return false;
+        }
+      }
+
+      // iframe 내부 문서 가져오기
+      function getIframeDocument() {
+        const iframeSelectors = [
+          'iframe[id="main"]',
+          'iframe[name="main"]',
+          'iframe',
+          '#main',
+          'frame[name="main"]'
+        ];
+        
+        for (const selector of iframeSelectors) {
+          const iframe = document.querySelector(selector);
+          if (iframe) {
+            try {
+              const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+              if (iframeDoc) {
+                return iframeDoc;
+              }
+            } catch (e) {
+              console.log('iframe 접근 실패:', e.message);
+            }
+          }
+        }
+        
+        return null;
+      }
+
+      // 로그인 정보만 입력하는 함수 (자동 제출 없음)
+      function fillLoginFormOnly() {
+        const iframeDoc = getIframeDocument();
+        const targetDoc = iframeDoc || document;
+        
+        console.log('로그인 폼 입력 시작 (자동 제출 없음)');
+        
+        const usernameSelectors = [
+          'input[id="id"]',
+          'input[name="id"]',
+          'input.input-id',
+          'input[placeholder*="학번"]',
+          'input[placeholder*="Student ID"]',
+          'input[name="userid"]',
+          'input[name="user_id"]',
+          'input[name="username"]',
+          'input[id="userid"]', 
+          'input[id="user_id"]',
+          'input[id="username"]',
+          'input[placeholder*="아이디"]',
+          'input[placeholder*="ID"]',
+          'input[type="text"]'
+        ];
+        
+        const passwordSelectors = [
+          'input[id="pwd"]',
+          'input[name="pwd"]',
+          'input.input-pw',
+          'input[placeholder*="비밀번호"]',
+          'input[placeholder*="Password"]',
+          'input[name="password"]',
+          'input[name="passwd"]',
+          'input[id="password"]',
+          'input[id="passwd"]',
+          'input[type="password"]'
+        ];
+        
+        let usernameField = null;
+        let passwordField = null;
+        
+        // 사용자명 필드 찾기
+        for (const selector of usernameSelectors) {
+          usernameField = targetDoc.querySelector(selector);
+          if (usernameField) {
+            break;
+          }
+        }
+        
+        // 비밀번호 필드 찾기
+        for (const selector of passwordSelectors) {
+          passwordField = targetDoc.querySelector(selector);
+          if (passwordField) {
+            break;
+          }
+        }
+        
+        let filled = false;
+        
+        // 사용자명 입력
+        if (usernameField) {
+          try {
+            usernameField.value = '';
+            usernameField.focus();
+            usernameField.value = savedLogin.username;
+            
+            usernameField.dispatchEvent(new Event('input', { bubbles: true }));
+            usernameField.dispatchEvent(new Event('change', { bubbles: true }));
+            usernameField.dispatchEvent(new Event('keyup', { bubbles: true }));
+            usernameField.dispatchEvent(new Event('blur', { bubbles: true }));
+            
+            console.log('사용자명 입력 완료 (자동 제출 없음)');
+            filled = true;
+          } catch (e) {
+            console.error('사용자명 입력 오류:', e);
+          }
+        }
+        
+        // 비밀번호 입력
+        if (passwordField) {
+          try {
+            passwordField.value = '';
+            passwordField.focus();
+            passwordField.value = savedLogin.password;
+            
+            passwordField.dispatchEvent(new Event('input', { bubbles: true }));
+            passwordField.dispatchEvent(new Event('change', { bubbles: true }));
+            passwordField.dispatchEvent(new Event('keyup', { bubbles: true }));
+            passwordField.dispatchEvent(new Event('blur', { bubbles: true }));
+            
+            console.log('비밀번호 입력 완료 (자동 제출 없음)');
+            filled = true;
+          } catch (e) {
+            console.error('비밀번호 입력 오류:', e);
+          }
+        }
+        
+        if (filled) {
+          console.log('✅ 로그인 폼 미리 입력 완료 - 사용자가 직접 로그인 버튼을 클릭하세요');
+        } else {
+          console.log('❌ 로그인 폼을 찾을 수 없습니다');
+        }
+        
+        return filled;
+      }
+      
+      // 폼 입력 프로세스 시작
+      setTimeout(() => {
+        const immediateSuccess = fillLoginFormOnly();
+        if (immediateSuccess) {
+          return;
+        }
+        
+        const buttonClicked = clickLoginButton();
+        
+        if (buttonClicked) {
+          const formWaitTimes = [200, 500, 1000, 1500];
+          formWaitTimes.forEach((delay) => {
+            setTimeout(() => {
+              fillLoginFormOnly();
+            }, delay);
+          });
+        } else {
+          const retryTimes = [1000, 2000, 3000];
+          retryTimes.forEach((delay) => {
+            setTimeout(() => {
+              const success = fillLoginFormOnly();
+              if (!success) {
+                clickLoginButton();
+              }
+            }, delay);
+          });
+        }
+      }, 500);
+      
+      // DOM 변화 감지
+      const observer = new MutationObserver(() => {
+        fillLoginFormOnly();
+      });
+      
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      
+      setTimeout(() => {
+        observer.disconnect();
+      }, 5000);
+      
+    })();
+  `;
+
+  mainWindow.webContents.executeJavaScript(script);
+}
+
+// 페이지 개선사항 주입 (완전 자동 로그인 - 정각용)
 function injectEnhancements() {
   if (!mainWindow || !mainWindow.webContents) return;
 
@@ -1133,13 +1512,13 @@ async function checkFirstRun() {
       store.set('saveLogin', true);
       console.log('저장 후 설정: [보안상 숨김]');
       
-      // 첫 실행 시에만 한번 자동 로그인 시도
-      console.log('첫 실행 - 자동로그인 시도');
+      // 첫 실행 시에도 로그인 폼만 미리 입력
+      console.log('첫 실행 - 로그인 폼 미리 입력');
       setTimeout(() => {
         if (mainWindow && mainWindow.webContents) {
-          injectEnhancements();
+          injectFormFillOnly();
         }
-      }, 2000);
+      }, 1500); // 1.5초로 단축
     } else {
       console.log('로그인 설정을 건너뛰었습니다.');
     }
@@ -1334,28 +1713,143 @@ function showLoginSetupDialog() {
   });
 }
 
-// 서버시간 오버레이 생성
-function createServerTimeOverlay() {
-  if (serverTimeWindow) return;
+// 인라인 서버시간 표시 생성
+function createInlineServerTime() {
+  if (!mainWindow || !mainWindow.webContents) {
+    console.log('메인 윈도우가 준비되지 않았습니다.');
+    return;
+  }
   
-  serverTimeWindow = new BrowserWindow({
-    width: 220,
-    height: 100,
-    x: mainWindow.getBounds().x + mainWindow.getBounds().width - 240,
-    y: mainWindow.getBounds().y + mainWindow.getBounds().height - 130,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: false,
-    minimizable: false,
-    maximizable: false,
-    parent: mainWindow,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
-    }
-  });
+  console.log('인라인 서버시간 표시 생성 시작...');
+  
+  // 메인 윈도우에 서버시간 HTML 삽입
+  const inlineTimeScript = `
+    (function() {
+      // JetBrains Mono 폰트 강제 로드
+      const fontLink = document.createElement('link');
+      fontLink.href = 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap';
+      fontLink.rel = 'stylesheet';
+      fontLink.onload = function() {
+        console.log('JetBrains Mono font loaded');
+      };
+      document.head.appendChild(fontLink);
+      
+      // 폰트 페이스 직접 정의 (백업)
+      const fontStyle = document.createElement('style');
+      fontStyle.textContent = \`
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+        .jetbrains-mono {
+          font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace !important;
+          font-feature-settings: 'liga' 0, 'calt' 0;
+        }
+      \`;
+      document.head.appendChild(fontStyle);
+      
+      // 기존 서버시간 요소가 있으면 제거
+      const existingTime = document.getElementById('inline-server-time');
+      if (existingTime) {
+        existingTime.remove();
+      }
+      
+      // 서버시간 표시 요소 생성
+      const timeElement = document.createElement('div');
+      timeElement.id = 'inline-server-time';
+      timeElement.style.cssText = \`
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 200px;
+        height: 70px;
+        background: linear-gradient(135deg, 
+          rgba(0,0,0,0.8) 0%, 
+          rgba(40,40,40,0.9) 100%);
+        color: white;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        text-align: center;
+        z-index: 9999;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.1);
+        pointer-events: none;
+        user-select: none;
+      \`;
+      
+      timeElement.innerHTML = \`
+        <div style="font-size: 11px; margin-bottom: 4px; font-weight: 600; color: #ff6b6b;">서버시간</div>
+        <div id="inline-time-display" class="jetbrains-mono" style="font-size: 14px; font-weight: 600; margin: 2px 0; letter-spacing: 0.5px;">--:--:--.---</div>
+        <div id="inline-date-display" style="font-size: 12px; font-weight: 500; margin: 2px 0;">----.--.--</div>
+        <div id="inline-day-display" style="font-size: 10px; font-weight: 500; margin-top: 1px; color: #ccc;">---요일</div>
+      \`;
+      
+      // 페이지에 삽입 (폰트 로드 후)
+      setTimeout(() => {
+        document.body.appendChild(timeElement);
+        
+        // 폰트 적용 강제 확인
+        const timeDisplay = document.getElementById('inline-time-display');
+        if (timeDisplay) {
+          timeDisplay.style.fontFamily = "'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace";
+          console.log('JetBrains Mono font applied to time display');
+        }
+      }, 500); // 폰트 로드 대기
+      
+      // 시간 업데이트 함수
+      function updateInlineTime() {
+        const now = new Date();
+        
+        // 시간 (밀리초 포함)
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+        const timeStr = hours + ':' + minutes + ':' + seconds + '.' + milliseconds;
+        
+        // 날짜
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const dateStr = year + '.' + month + '.' + day;
+        
+        // 요일
+        const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+        const dayStr = dayNames[now.getDay()] + '요일';
+        
+        const timeDisplay = document.getElementById('inline-time-display');
+        const dateDisplay = document.getElementById('inline-date-display');
+        const dayDisplay = document.getElementById('inline-day-display');
+        
+        if (timeDisplay) timeDisplay.textContent = timeStr;
+        if (dateDisplay) dateDisplay.textContent = dateStr;
+        if (dayDisplay) dayDisplay.textContent = dayStr;
+      }
+      
+      // 초기 실행 및 주기적 업데이트 (폰트 로드 후)
+      setTimeout(() => {
+        updateInlineTime();
+        const timeInterval = setInterval(updateInlineTime, 10);
+        
+        // 전역에 정리 함수 저장
+        window.clearInlineServerTime = function() {
+          clearInterval(timeInterval);
+          const element = document.getElementById('inline-server-time');
+          if (element) {
+            element.remove();
+          }
+        };
+      }, 600);
+      
+      console.log('Inline server time display created');
+    })();
+  `;
+  
+  try {
+    mainWindow.webContents.executeJavaScript(inlineTimeScript);
+    console.log('인라인 서버시간 표시 생성 완료');
+  } catch (error) {
+    console.error('인라인 서버시간 표시 생성 실패:', error);
+  }
 
   const overlayHtml = `
     <!DOCTYPE html>
@@ -1372,11 +1866,9 @@ function createServerTimeOverlay() {
           height: 100%;
           overflow: hidden;
           font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-          background: rgba(255, 255, 255, 0.95);
-          color: #333;
+          background: transparent;
           border-radius: 8px;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-          backdrop-filter: blur(5px);
+          backdrop-filter: blur(10px);
           user-select: none;
           -webkit-user-select: none;
         }
@@ -1384,6 +1876,14 @@ function createServerTimeOverlay() {
         body {
           padding: 14px 18px;
           box-sizing: border-box;
+          background: linear-gradient(135deg, 
+            rgba(255,255,255,0.1) 0%, 
+            rgba(255,255,255,0.05) 50%, 
+            rgba(0,0,0,0.05) 100%);
+          border: none;
+          box-shadow: 
+            0 8px 32px rgba(0,0,0,0.1),
+            inset 0 1px 1px rgba(255,255,255,0.2);
         }
         
         .time-container {
@@ -1403,41 +1903,45 @@ function createServerTimeOverlay() {
           font-size: 12px;
           margin-bottom: 4px;
           font-weight: 600;
-          color: #8B0000;
           font-family: 'Pretendard', sans-serif;
           user-select: none;
           -webkit-user-select: none;
+          color: #8B0000;
+          text-shadow: 1px 1px 2px rgba(255,255,255,0.8), -1px -1px 2px rgba(0,0,0,0.3);
         }
         
         .server-time {
           font-size: 16px;
           font-weight: 600;
           margin: 2px 0;
-          color: #333;
           font-family: 'JetBrains Mono', monospace;
           letter-spacing: 0.5px;
           user-select: none;
           -webkit-user-select: none;
+          color: #333333;
+          text-shadow: 1px 1px 2px rgba(255,255,255,0.8), -1px -1px 2px rgba(0,0,0,0.3);
         }
         
         .server-date {
           font-size: 14px;
           font-weight: 500;
           margin: 2px 0;
-          color: #333;
           font-family: 'Pretendard', sans-serif;
           user-select: none;
           -webkit-user-select: none;
+          color: #333333;
+          text-shadow: 1px 1px 2px rgba(255,255,255,0.8), -1px -1px 2px rgba(0,0,0,0.3);
         }
         
         .server-day {
           font-size: 12px;
           font-weight: 500;
           margin-top: 1px;
-          color: #666;
           font-family: 'Pretendard', sans-serif;
           user-select: none;
           -webkit-user-select: none;
+          color: #333333;
+          text-shadow: 1px 1px 2px rgba(255,255,255,0.8), -1px -1px 2px rgba(0,0,0,0.3);
         }
         
         * {
@@ -1446,10 +1950,28 @@ function createServerTimeOverlay() {
           -webkit-user-select: none;
           scrollbar-width: none;
           -ms-overflow-style: none;
+          outline: none !important;
+          border: none !important;
         }
         
         *::-webkit-scrollbar {
           display: none;
+        }
+        
+        /* 모든 포커스 관련 테두리 제거 및 포커스 방지 */
+        *:focus, *:active, *:hover {
+          outline: none !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        
+        /* 포커스 완전 방지 */
+        *, *:before, *:after {
+          pointer-events: none !important;
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
         }
       </style>
     </head>
@@ -1461,40 +1983,164 @@ function createServerTimeOverlay() {
         <div class="server-day" id="day">---요일</div>
       </div>
       
-      <script>
-        function updateTime() {
-          const now = new Date();
+              <script>
+          // 배경색 감지 및 폰트 색상 자동 조정 함수
+          function detectBackgroundAndAdjustColor() {
+            try {
+              // Electron의 다크모드 상태 우선 확인 (가능한 경우)
+              let isDarkMode = false;
+              let brightness = 255; // 기본값 (밝음)
+              
+              // 다양한 방법으로 다크모드 감지 시도
+              if (window.matchMedia) {
+                isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              }
+              
+              // 시스템 다크모드 감지에 실패한 경우 색상 기반 감지
+              if (!isDarkMode) {
+                // 부모 윈도우의 배경색 감지 시도
+                const parentWindow = window.parent || window.opener;
+                let backgroundColor = 'rgb(255, 255, 255)'; // 기본값
+                
+                if (parentWindow && parentWindow.document) {
+                  try {
+                    const parentBody = parentWindow.document.body;
+                    const parentComputedStyle = parentWindow.getComputedStyle(parentBody);
+                    backgroundColor = parentComputedStyle.backgroundColor || 'rgb(255, 255, 255)';
+                  } catch (e) {
+                    console.log('부모 윈도우 접근 실패, 기본값 사용');
+                  }
+                }
+                
+                // RGB 값을 추출하여 밝기 계산
+                const rgbMatch = backgroundColor.match(/rgb\\s*\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\)/);
+                
+                if (rgbMatch && rgbMatch.length >= 4) {
+                  const r = parseInt(rgbMatch[1]);
+                  const g = parseInt(rgbMatch[2]);
+                  const b = parseInt(rgbMatch[3]);
+                  // 인간의 눈에 대한 가중 밝기 계산
+                  brightness = (r * 0.299 + g * 0.587 + b * 0.114);
+                  isDarkMode = brightness < 128;
+                } else {
+                  // RGB 파싱 실패 시 기본값
+                  brightness = 255;
+                  isDarkMode = false;
+                }
+              } else {
+                brightness = isDarkMode ? 50 : 255;
+              }
+              
+              // 최종 다크모드 상태 결정
+              const finalIsDark = isDarkMode || brightness < 128;
+              const textColor = finalIsDark ? '#ffffff' : '#333333';
+              const shadowColor = finalIsDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
+              const inverseShadowColor = finalIsDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)';
+              
+              // 모든 텍스트 요소에 색상 적용
+              const elements = document.querySelectorAll('.server-label, .server-time, .server-date, .server-day');
+              elements.forEach(element => {
+                element.style.color = textColor;
+                element.style.textShadow = 
+                  '1px 1px 2px ' + shadowColor + ', ' +
+                  '-1px -1px 2px ' + inverseShadowColor + ', ' +
+                  '0 0 4px ' + shadowColor;
+              });
+              
+              // 라벨에는 특별한 색상 적용 (고려대 컬러 또는 대비색)
+              const labelElement = document.querySelector('.server-label');
+              if (labelElement) {
+                labelElement.style.color = finalIsDark ? '#ff6b6b' : '#8B0000';
+              }
+              
+              console.log('Background Detection - Dark Mode:', finalIsDark, 'Brightness:', Math.round(brightness), 'Text Color:', textColor);
+              
+            } catch (error) {
+              console.log('배경색 감지 실패, 기본 스타일 사용:', error.message);
+              // 기본 스타일로 폴백 (흰색 배경 가정)
+              const elements = document.querySelectorAll('.server-label, .server-time, .server-date, .server-day');
+              elements.forEach(element => {
+                element.style.color = '#333333';
+                element.style.textShadow = '1px 1px 2px rgba(255,255,255,0.8), -1px -1px 2px rgba(0,0,0,0.3)';
+              });
+              
+              // 라벨은 고려대 컬러
+              const labelElement = document.querySelector('.server-label');
+              if (labelElement) {
+                labelElement.style.color = '#8B0000';
+              }
+            }
+          }
+
+          function updateTime() {
+            const now = new Date();
+            
+            // 시간 (밀리초 포함)
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+            const timeStr = hours + ':' + minutes + ':' + seconds + '.' + milliseconds;
+            
+            // 날짜
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const dateStr = year + '.' + month + '.' + day;
+            
+            // 요일
+            const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+            const dayStr = dayNames[now.getDay()] + '요일';
+            
+            document.getElementById('time').textContent = timeStr;
+            document.getElementById('date').textContent = dateStr;
+            document.getElementById('day').textContent = dayStr;
+          }
           
-          // 시간 (밀리초 포함)
-          const hours = String(now.getHours()).padStart(2, '0');
-          const minutes = String(now.getMinutes()).padStart(2, '0');
-          const seconds = String(now.getSeconds()).padStart(2, '0');
-          const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
-          const timeStr = hours + ':' + minutes + ':' + seconds + '.' + milliseconds;
+          // 초기 실행
+          updateTime();
+          detectBackgroundAndAdjustColor();
           
-          // 날짜
-          const year = now.getFullYear();
-          const month = String(now.getMonth() + 1).padStart(2, '0');
-          const day = String(now.getDate()).padStart(2, '0');
-          const dateStr = year + '.' + month + '.' + day;
+          // 시간 업데이트
+          setInterval(updateTime, 10); // 밀리초 업데이트를 위해 10ms마다 갱신
           
-          // 요일
-          const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-          const dayStr = dayNames[now.getDay()] + '요일';
+          // 배경색 감지 주기적 업데이트 (다크모드 토글 등에 대응)
+          setInterval(detectBackgroundAndAdjustColor, 2000); // 2초마다 배경색 재감지
           
-          document.getElementById('time').textContent = timeStr;
-          document.getElementById('date').textContent = dateStr;
-          document.getElementById('day').textContent = dayStr;
-        }
-        
-        updateTime();
-        setInterval(updateTime, 10); // 밀리초 업데이트를 위해 10ms마다 갱신
-      </script>
+          // 윈도우 포커스 시에도 배경색 재감지
+          window.addEventListener('focus', detectBackgroundAndAdjustColor);
+          window.addEventListener('blur', detectBackgroundAndAdjustColor);
+        </script>
     </body>
     </html>
   `;
 
   serverTimeWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(overlayHtml));
+
+  // 오버레이 로딩 상태 확인 및 포커스 방지 강화
+  serverTimeWindow.webContents.on('did-finish-load', () => {
+    console.log('Server time overlay loaded successfully');
+    
+    // 추가적인 포커스 방지 설정
+    try {
+      serverTimeWindow.setIgnoreMouseEvents(true, { forward: true });
+      console.log('Mouse events ignored for overlay');
+    } catch (error) {
+      console.error('Failed to ignore mouse events:', error);
+    }
+  });
+
+  // 오버레이가 포커스를 받으려고 할 때 메인 윈도우로 포커스 복원
+  serverTimeWindow.on('focus', () => {
+    try {
+      console.log('Overlay focused - redirecting to main window');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.focus();
+      }
+    } catch (error) {
+      console.error('Focus redirect error:', error);
+    }
+  });
 
   // 메인 윈도우가 움직이거나 크기가 변할 때 오버레이를 우측하단에 유지
   const updateOverlayPosition = () => {
@@ -1509,6 +2155,9 @@ function createServerTimeOverlay() {
 
   mainWindow.on('move', updateOverlayPosition);
   mainWindow.on('resize', updateOverlayPosition);
+
+  // 강제 포커스 유지 비활성화 - 자연스러운 포커스 관리
+  console.log('Natural focus management - no forced focus');
 
   serverTimeWindow.on('closed', () => {
     serverTimeWindow = null;
