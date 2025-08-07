@@ -16,7 +16,7 @@ $replacement = "#define MyAppVersion `"$version`""
 if ($installerContent -match $pattern) {
     $newContent = $installerContent -replace $pattern, $replacement
     
-    # 파일에 다시 쓰기
+    # 파일에 다시 쓰기 (UTF-8 BOM으로 저장하여 인코딩 문제 방지)
     Set-Content "installer.iss" $newContent -Encoding UTF8
     
     Write-Host "✅ installer.iss 파일이 버전 $version으로 업데이트되었습니다."
