@@ -10,7 +10,6 @@ yarn-error.log*
 # out/
 
 # Electron build files (Git LFS로 관리)
-*.exe
 *.msi
 *.dmg
 *.pkg
