@@ -7,10 +7,7 @@ def create_high_quality_ico():
         img = Image.open('assets/icon.png')
         
         # 512x512 포함한 더 많은 크기와 고화질 설정으로 ICO 파일 생성
-        sizes = [
-            (16, 16), (24, 24), (32, 32), (48, 48), 
-            (64, 64), (96, 96), (128, 128), (256, 256), (512, 512)
-        ]
+        sizes = [(256, 256), (512, 512)]
         images = []
         
         for size in sizes:
@@ -44,10 +41,7 @@ def create_high_quality_ico():
             rgb_img = img.convert('RGB')
             
             # 512x512 포함한 크기들
-            sizes = [
-                (16, 16), (24, 24), (32, 32), (48, 48), 
-                (64, 64), (96, 96), (128, 128), (256, 256), (512, 512)
-            ]
+            sizes = [(256, 256), (512, 512)]
             images = []
             
             for size in sizes:

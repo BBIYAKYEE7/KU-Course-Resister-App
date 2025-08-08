@@ -3,6 +3,15 @@ const path = require('path');
 const Store = require('electron-store');
 const axios = require('axios');
 
+// electron-updater 안전하게 로드
+let autoUpdater;
+try {
+  autoUpdater = require('electron-updater').autoUpdater;
+} catch (error) {
+  console.log('electron-updater 로드 실패:', error.message);
+  autoUpdater = null;
+}
+
 // 설정 저장소 초기화
 const store = new Store();
 let mainWindow;
@@ -45,58 +54,63 @@ async function createWindow() {
     }
   });
 
-  // 페이지 로드 완료 시 폰트 적용 및 로그인 폼 미리 입력
+    // 페이지 로드 완료 시 폰트 적용 및 로그인 폼 미리 입력
   mainWindow.webContents.on('did-finish-load', () => {
     console.log('페이지 로드 완료 - 폰트 적용 및 로그인 폼 미리 입력');
     applyPretendardFont();
     
-    // 팝업 창 자동 닫기 스크립트 주입
-    setTimeout(() => {
-      mainWindow.webContents.executeJavaScript(`
-        // 팝업 창 자동 닫기
-        function closePopupWindows() {
-          const popupSelectors = [
-            'div[style*="position: fixed"]',
-            'div[style*="z-index"]',
-            '.popup',
-            '.modal',
-            'div[class*="popup"]',
-            'div[class*="modal"]'
-          ];
-          
-          popupSelectors.forEach(selector => {
-            const popups = document.querySelectorAll(selector);
-            popups.forEach(popup => {
-              const text = popup.textContent || '';
-              if (text.includes('한 개의 브라우저') || 
-                  text.includes('Only one tab') ||
-                  text.includes('Invalid screen') ||
-                  text.includes('닫아주세요') ||
-                  text.includes('Please close')) {
-                console.log('자동으로 팝업 창 닫기:', text.substring(0, 50));
-                popup.remove();
-              }
+    // 팝업 창 자동 닫기 스크립트 주입 (한 번만)
+    if (!global.popupScriptInjected) {
+      global.popupScriptInjected = true;
+      setTimeout(() => {
+        mainWindow.webContents.executeJavaScript(`
+          // 팝업 창 자동 닫기
+          function closePopupWindows() {
+            const popupSelectors = [
+              'div[style*="position: fixed"]',
+              'div[style*="z-index"]',
+              '.popup',
+              '.modal',
+              'div[class*="popup"]',
+              'div[class*="modal"]'
+            ];
+            
+            popupSelectors.forEach(selector => {
+              const popups = document.querySelectorAll(selector);
+              popups.forEach(popup => {
+                const text = popup.textContent || '';
+                if (text.includes('한 개의 브라우저') || 
+                    text.includes('Only one tab') ||
+                    text.includes('Invalid screen') ||
+                    text.includes('닫아주세요') ||
+                    text.includes('Please close')) {
+                  console.log('자동으로 팝업 창 닫기:', text.substring(0, 50));
+                  popup.remove();
+                }
+              });
             });
-          });
-        }
-        
-        // 즉시 실행
-        closePopupWindows();
-        
-        // 주기적으로 확인
-        setInterval(closePopupWindows, 1000);
-        
-        // DOM 변화 감지
-        const observer = new MutationObserver(() => {
+          }
+          
+          // 즉시 실행
           closePopupWindows();
+          
+          // 주기적으로 확인
+          setInterval(closePopupWindows, 1000);
+          
+          // DOM 변화 감지
+          const observer = new MutationObserver(() => {
+            closePopupWindows();
+          });
+          
+          observer.observe(document.body, {
+            childList: true,
+            subtree: true
+          });
+        `).catch(error => {
+          console.log('팝업 스크립트 주입 실패:', error.message);
         });
-        
-        observer.observe(document.body, {
-          childList: true,
-          subtree: true
-        });
-      `);
-    }, 2000);
+      }, 2000);
+    }
     
     // 서버시간 오버레이는 한 번만 생성 (새로고침 시에도 유지)
     if (!serverTimeWindow || serverTimeWindow.isDestroyed()) {
@@ -112,11 +126,30 @@ async function createWindow() {
         console.log('페이지 로드 완료 - 로그인 폼 미리 입력');
         injectFormFillOnly();
       }, 1000); // 1초 후 폼 입력
+    } else {
+      // 로그인 정보가 없으면 자동으로 설정 다이얼로그 표시 (즉시 로그인 없음)
+      setTimeout(async () => {
+        console.log('로그인 정보가 없음 - 자동 설정 다이얼로그 표시');
+        const loginInfo = await showLoginSetupDialog();
+        if (loginInfo) {
+          store.set('userLoginInfo', loginInfo);
+          store.set('saveLogin', true);
+          console.log('자동 설정 완료 - 로그인 폼만 미리 입력 (즉시 로그인 안함)');
+          setTimeout(() => {
+            injectFormFillOnly();
+          }, 1000);
+        }
+      }, 2000); // 2초 후 설정 다이얼로그 표시
     }
   });
 
-  // DOM 준비 완료 시에도 로그인 폼 미리 입력
+    // DOM 준비 완료 시에도 로그인 폼 미리 입력 (한 번만)
   mainWindow.webContents.on('dom-ready', () => {
+    if (global.domReadyHandled) {
+      return; // 이미 처리됨
+    }
+    global.domReadyHandled = true;
+    
     console.log('DOM 준비 완료 - 로그인 폼 미리 입력');
     
     // 서버시간 오버레이는 이미 생성되어 있으면 재생성하지 않음
@@ -133,6 +166,20 @@ async function createWindow() {
         console.log('DOM 준비 완료 - 로그인 폼 미리 입력');
         injectFormFillOnly();
       }, 500); // 0.5초 후 폼 입력
+    } else {
+      // 로그인 정보가 없으면 자동으로 설정 다이얼로그 표시 (DOM 준비 시에는 더 빠르게)
+      setTimeout(async () => {
+        console.log('DOM 준비 완료 - 로그인 정보 없음, 자동 설정 다이얼로그 표시');
+        const loginInfo = await showLoginSetupDialog();
+        if (loginInfo) {
+          store.set('userLoginInfo', loginInfo);
+          store.set('saveLogin', true);
+          console.log('자동 설정 완료 - 로그인 폼만 미리 입력 (즉시 로그인 안함)');
+          setTimeout(() => {
+            injectFormFillOnly();
+          }, 500);
+        }
+      }, 1000); // 1초 후 설정 다이얼로그 표시
     }
   });
 
@@ -175,48 +222,102 @@ app.on('activate', () => {
   }
 });
 
-// 하이브리드 자동 로그인 시스템 (59분 59초 999밀리초에 자동 제출)
+// 정각 및 30분 간격 자동 로그인 시스템
 function setupHourlyAutoLogin() {
-  console.log('✅ 하이브리드 자동로그인 시스템 활성화 - 폼 미리 입력 + 59분 59초 999밀리초 자동 제출');
+  console.log('✅ 정각 및 30분 간격 자동로그인 시스템 활성화');
   
-  // 다음 정각 1초 전까지의 시간 계산 함수
-  function getMillisecondsUntilNextHourMinusOneSecond() {
+  // 다음 정각까지의 시간 계산 함수
+  function getMillisecondsUntilNextHour() {
     const now = new Date();
     const nextHour = new Date(now);
-    nextHour.setHours(now.getHours() + 1, 59, 59, 999); // 다음 시간의 59분 59초 999밀리초로 설정
+    nextHour.setHours(now.getHours() + 1, 0, 0, 0); // 다음 정각
     return nextHour.getTime() - now.getTime();
   }
   
-  // 59분 59초 999밀리초 자동 로그인 실행 함수 (완전 자동 제출)
+  // 다음 30분까지의 시간 계산 함수
+  function getMillisecondsUntilNextHalfHour() {
+    const now = new Date();
+    const nextHalfHour = new Date(now);
+    const currentMinutes = now.getMinutes();
+    
+    if (currentMinutes < 30) {
+      nextHalfHour.setMinutes(30, 0, 0);
+    } else {
+      nextHalfHour.setHours(now.getHours() + 1, 0, 0, 0);
+    }
+    
+    return nextHalfHour.getTime() - now.getTime();
+  }
+  
+  // 정각 자동 로그인 실행 함수
   function executeHourlyAutoLogin() {
     const currentTime = new Date().toLocaleTimeString();
-    console.log(currentTime + ' - 59분 59초 999밀리초 자동로그인 실행 (완전 자동)');
+    console.log(currentTime + ' - 정각 자동로그인 실행');
     
     // 메인 윈도우가 존재하고 로그인 정보가 있는 경우에만 실행
     if (mainWindow && mainWindow.webContents && store.get('userLoginInfo')) {
       try {
-        injectEnhancements(); // 완전 자동 로그인 (폼 입력 + 자동 제출)
-        console.log('59분 59초 999밀리초 자동로그인 완료');
+        injectEnhancements(); // 완전 자동 로그인
+        console.log('정각 자동로그인 완료');
       } catch (error) {
-        console.log('59분 59초 999밀리초 자동로그인 중 오류:', error.message);
+        console.log('정각 자동로그인 중 오류:', error.message);
       }
     } else {
       console.log('자동로그인 조건 미충족 - 건너뜀');
     }
   }
   
-  // 첫 번째 59분 59초 999밀리초까지 대기 후 실행, 그 이후 매시 반복
-  const timeUntilNextHourMinusOneSecond = getMillisecondsUntilNextHourMinusOneSecond();
-  const minutesUntilNextHourMinusOneSecond = Math.round(timeUntilNextHourMinusOneSecond / 1000 / 60);
-  console.log('다음 59분 59초 999밀리초까지 ' + minutesUntilNextHourMinusOneSecond + '분 대기 중... (그 전까지는 폼만 미리 입력됨)');
+  // 30분 간격 자동 로그인 실행 함수
+  function executeHalfHourlyAutoLogin() {
+    const currentTime = new Date().toLocaleTimeString();
+    console.log(currentTime + ' - 30분 간격 자동로그인 실행');
+    
+    // 메인 윈도우가 존재하고 로그인 정보가 있는 경우에만 실행
+    if (mainWindow && mainWindow.webContents && store.get('userLoginInfo')) {
+      try {
+        injectEnhancements(); // 완전 자동 로그인
+        console.log('30분 간격 자동로그인 완료');
+      } catch (error) {
+        console.log('30분 간격 자동로그인 중 오류:', error.message);
+      }
+    } else {
+      console.log('자동로그인 조건 미충족 - 건너뜀');
+    }
+  }
+  
+  // 정각 자동로그인 설정
+  const timeUntilNextHour = getMillisecondsUntilNextHour();
+  const minutesUntilNextHour = Math.round(timeUntilNextHour / 1000 / 60);
+  console.log('다음 정각까지 ' + minutesUntilNextHour + '분 대기 중...');
   
   setTimeout(() => {
     executeHourlyAutoLogin();
     
-    // 이후 매시 59분 59초 999밀리초마다 실행 (1시간 = 3,600,000ms)
+    // 이후 매시 정각마다 실행 (1시간 = 3,600,000ms)
     setInterval(executeHourlyAutoLogin, 60 * 60 * 1000);
     
-  }, timeUntilNextHourMinusOneSecond);
+  }, timeUntilNextHour);
+  
+  // 30분 간격 자동로그인 설정
+  const timeUntilNextHalfHour = getMillisecondsUntilNextHalfHour();
+  const minutesUntilNextHalfHour = Math.round(timeUntilNextHalfHour / 1000 / 60);
+  console.log('다음 30분까지 ' + minutesUntilNextHalfHour + '분 대기 중...');
+  
+  setTimeout(() => {
+    executeHalfHourlyAutoLogin();
+    
+    // 이후 매 30분마다 실행 (30분 = 1,800,000ms)
+    setInterval(executeHalfHourlyAutoLogin, 30 * 60 * 1000);
+    
+  }, timeUntilNextHalfHour);
+  
+  // 추가: 앱 시작 시 즉시 자동로그인 시도 (옵션) - 주석 처리
+  // setTimeout(() => {
+  //   if (store.get('userLoginInfo')) {
+  //     console.log('앱 시작 시 즉시 자동로그인 시도');
+  //     injectEnhancements();
+  //   }
+  // }, 3000); // 3초 후 시도
 }
 
 // 메뉴 생성
@@ -364,6 +465,40 @@ function createMenu() {
               injectEnhancements();
             } else {
               console.log('로그인 정보가 없습니다. 먼저 로그인 정보를 설정해주세요.');
+              dialog.showMessageBox(mainWindow, {
+                type: 'warning',
+                title: '로그인 정보 없음',
+                message: '로그인 정보가 설정되지 않았습니다.',
+                detail: '설정 > 로그인 정보 재설정에서 로그인 정보를 먼저 설정해주세요.',
+                buttons: ['확인']
+              });
+            }
+          }
+        },
+        {
+          label: '자동로그인 테스트',
+          click: () => {
+            console.log('자동로그인 테스트 실행');
+            if (mainWindow && mainWindow.webContents && store.get('userLoginInfo')) {
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: '자동로그인 테스트',
+                message: '자동로그인을 테스트합니다.',
+                detail: '3초 후 자동로그인이 실행됩니다. 로그인 폼이 나타나지 않으면 수동으로 로그인 버튼을 클릭해주세요.',
+                buttons: ['확인']
+              }).then(() => {
+                setTimeout(() => {
+                  injectEnhancements();
+                }, 3000);
+              });
+            } else {
+              dialog.showMessageBox(mainWindow, {
+                type: 'warning',
+                title: '로그인 정보 없음',
+                message: '로그인 정보가 설정되지 않았습니다.',
+                detail: '설정 > 로그인 정보 재설정에서 로그인 정보를 먼저 설정해주세요.',
+                buttons: ['확인']
+              });
             }
           }
         },
@@ -2054,173 +2189,203 @@ ipcMain.on('login-setup-complete', () => {
 function setupAutoUpdate() {
   console.log('✅ 자동 업데이트 시스템 활성화');
   
-  // GitHub API를 통한 릴리즈 확인
-  async function checkForUpdates() {
-    try {
-      const response = await axios.get('https://api.github.com/repos/BBIYAKYEE7/KU-Course-Resister-App/releases/latest', {
-        timeout: 10000,
-        headers: {
-          'User-Agent': 'Sugang-App-AutoUpdate'
-        }
-      });
-      
-      const latestVersion = response.data.tag_name;
-      const currentVersion = app.getVersion();
-      
-      console.log('현재 버전:', currentVersion);
-      console.log('최신 버전:', latestVersion);
-      
-      if (latestVersion && latestVersion !== currentVersion) {
-        console.log('새로운 버전이 발견되었습니다:', latestVersion);
-        
-        // 업데이트 다이얼로그 표시
-        const updateDialog = new BrowserWindow({
-          width: 450,
-          height: 300,
-          modal: true,
-          resizable: false,
-          minimizable: false,
-          maximizable: false,
-          webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false
-          },
-          icon: path.join(__dirname, 'assets/icon.ico')
-        });
-
-        const updateHtml = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>업데이트 확인</title>
-            <style>
-              @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css');
-              
-              body {
-                font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-                margin: 0;
-                padding: 30px;
-                background: linear-gradient(135deg, #8B0000, #A0002A);
-                color: white;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                min-height: 240px;
-              }
-              
-              .update-icon {
-                text-align: center;
-                font-size: 48px;
-                margin-bottom: 20px;
-              }
-              
-              .update-title {
-                text-align: center;
-                margin-bottom: 20px;
-              }
-              
-              .update-title h2 {
-                margin: 0;
-                font-size: 20px;
-                font-weight: 700;
-              }
-              
-              .update-title p {
-                margin: 5px 0 0 0;
-                font-size: 14px;
-                opacity: 0.8;
-              }
-              
-              .version-info {
-                background: rgba(255,255,255,0.1);
-                padding: 15px;
-                border-radius: 8px;
-                margin-bottom: 20px;
-                font-size: 14px;
-                line-height: 1.4;
-              }
-              
-              .button-group {
-                display: flex;
-                gap: 10px;
-              }
-              
-              button {
-                flex: 1;
-                padding: 12px;
-                border: none;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 600;
-                cursor: pointer;
-                font-family: 'Pretendard', sans-serif;
-              }
-              
-              .btn-primary {
-                background: #FFD700;
-                color: #8B0000;
-              }
-              
-              .btn-secondary {
-                background: rgba(255,255,255,0.2);
-                color: white;
-                border: 1px solid rgba(255,255,255,0.3);
-              }
-              
-              button:hover {
-                opacity: 0.9;
-                transform: translateY(-1px);
-              }
-            </style>
-          </head>
-          <body>
-            <div class="update-icon">🔄</div>
-            <div class="update-title">
-              <h2>새로운 버전이 있습니다</h2>
-              <p>최신 버전으로 업데이트하시겠습니까?</p>
-            </div>
-            
-            <div class="version-info">
-              <strong>현재 버전:</strong> ${currentVersion}<br>
-              <strong>최신 버전:</strong> ${latestVersion}<br>
-              <br>
-              업데이트를 통해 새로운 기능과 개선사항을 받으실 수 있습니다.
-            </div>
-            
-            <div class="button-group">
-              <button class="btn-secondary" onclick="skipUpdate()">나중에</button>
-              <button class="btn-primary" onclick="downloadUpdate()">업데이트 다운로드</button>
-            </div>
-            
-            <script>
-              const { ipcRenderer, shell } = require('electron');
-              
-              function downloadUpdate() {
-                shell.openExternal('https://github.com/BBIYAKYEE7/KU-Course-Resister-App/releases/latest');
-                window.close();
-              }
-              
-              function skipUpdate() {
-                window.close();
-              }
-            </script>
-          </body>
-          </html>
-        `;
-
-        updateDialog.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(updateHtml));
-
-        updateDialog.on('closed', () => {
-          // 업데이트 확인 완료
-        });
-      }
-    } catch (error) {
-      console.log('업데이트 확인 실패:', error.message);
-    }
+  // electron-updater 설정
+  if (autoUpdater) {
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+    
+    // 업데이트 이벤트 리스너
+    autoUpdater.on('checking-for-update', () => {
+      console.log('업데이트 확인 중...');
+    });
+    
+    autoUpdater.on('update-available', (info) => {
+      console.log('업데이트 가능:', info);
+      showUpdateDialog(info);
+    });
+    
+    autoUpdater.on('update-not-available', (info) => {
+      console.log('업데이트 없음:', info);
+    });
+    
+    autoUpdater.on('error', (err) => {
+      console.log('업데이트 오류:', err);
+    });
+    
+    autoUpdater.on('download-progress', (progressObj) => {
+      console.log('다운로드 진행률:', progressObj.percent);
+    });
+    
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log('업데이트 다운로드 완료:', info);
+      showUpdateReadyDialog();
+    });
   }
   
-  // 앱 시작 시 업데이트 확인
-  setTimeout(checkForUpdates, 5000); // 5초 후 첫 확인
+  // 업데이트 다이얼로그 표시
+  function showUpdateDialog(info) {
+    const updateDialog = new BrowserWindow({
+      width: 450,
+      height: 300,
+      modal: true,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false
+      },
+      icon: path.join(__dirname, 'assets/icon.ico')
+    });
+
+    const updateHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>업데이트 확인</title>
+        <style>
+          @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css');
+          
+          body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            margin: 0;
+            padding: 30px;
+            background: linear-gradient(135deg, #8B0000, #A0002A);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 240px;
+          }
+          
+          .update-icon {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 20px;
+          }
+          
+          .update-title {
+            text-align: center;
+            margin-bottom: 20px;
+          }
+          
+          .update-title h2 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+          }
+          
+          .update-title p {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            opacity: 0.8;
+          }
+          
+          .version-info {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.4;
+          }
+          
+          .button-group {
+            display: flex;
+            gap: 10px;
+          }
+          
+          button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Pretendard', sans-serif;
+          }
+          
+          .btn-primary {
+            background: #FFD700;
+            color: #8B0000;
+          }
+          
+          .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+          }
+          
+          button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+          }
+        </style>
+      </head>
+      <body>
+        <div class="update-icon">🔄</div>
+        <div class="update-title">
+          <h2>새로운 버전이 있습니다</h2>
+          <p>최신 버전으로 업데이트하시겠습니까?</p>
+        </div>
+        
+        <div class="version-info">
+          <strong>현재 버전:</strong> ${app.getVersion()}<br>
+          <strong>최신 버전:</strong> ${info.version || '알 수 없음'}<br>
+          <br>
+          업데이트를 통해 새로운 기능과 개선사항을 받으실 수 있습니다.
+        </div>
+        
+        <div class="button-group">
+          <button class="btn-secondary" onclick="skipUpdate()">나중에</button>
+          <button class="btn-primary" onclick="downloadUpdate()">업데이트 다운로드</button>
+        </div>
+        
+        <script>
+          const { ipcRenderer, shell } = require('electron');
+          
+          function downloadUpdate() {
+            shell.openExternal('https://github.com/BBIYAKYEE7/KU-Course-Resister-App/releases/latest');
+            window.close();
+          }
+          
+          function skipUpdate() {
+            window.close();
+          }
+        </script>
+      </body>
+      </html>
+    `;
+
+    updateDialog.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(updateHtml));
+
+    updateDialog.on('closed', () => {
+      // 업데이트 확인 완료
+    });
+  }
+  
+  // 업데이트 다운로드 완료 다이얼로그
+  function showUpdateReadyDialog() {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: '업데이트 준비 완료',
+      message: '업데이트가 다운로드되었습니다. 앱을 재시작하면 새로운 버전이 적용됩니다.',
+      buttons: ['지금 재시작', '나중에'],
+      defaultId: 0
+    }).then((result) => {
+      if (result.response === 0 && autoUpdater) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  }
+  
+  // 앱 시작 시 업데이트 확인 (5초 후)
+  setTimeout(() => {
+    if (autoUpdater) {
+      autoUpdater.checkForUpdates();
+    }
+  }, 5000);
   
   // 매일 자정에 업데이트 확인
   const now = new Date();
@@ -2231,13 +2396,17 @@ function setupAutoUpdate() {
   const timeUntilMidnight = tomorrow.getTime() - now.getTime();
   
   setTimeout(() => {
-    checkForUpdates();
+    if (autoUpdater) {
+      autoUpdater.checkForUpdates();
+    }
     // 이후 매일 자정에 확인
-    setInterval(checkForUpdates, 24 * 60 * 60 * 1000);
+    setInterval(() => {
+      if (autoUpdater) {
+        autoUpdater.checkForUpdates();
+      }
+    }, 24 * 60 * 60 * 1000);
   }, timeUntilMidnight);
 }
-
-// 앱이 준비되면 윈도우 생성
 app.whenReady().then(() => {
   createWindow();
   setupAutoUpdate(); // 자동 업데이트 시스템 활성화

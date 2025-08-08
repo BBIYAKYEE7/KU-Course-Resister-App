@@ -12,12 +12,14 @@
 - 🎨 Pretendard 폰트 적용
 - 🔄 자동 업데이트 기능
 - ⚡ 최적화된 성능 및 안정성
+- 🖥️ 다중 아키텍처 지원 (x64, ia32, arm64)
 
 ## 시스템 요구사항
 
 - Windows 10 이상
 - Node.js 16 이상
 - 관리자 권한 (설치 시)
+- 지원 아키텍처: x64, ia32, arm64
 
 ## 개발 환경 설정
 
@@ -32,6 +34,35 @@ npm run dev
 ```
 
 ## 빌드 및 배포
+
+### 다중 아키텍처 빌드 (권장)
+
+모든 아키텍처를 한 번에 빌드:
+```bash
+npm run build:win:all
+```
+
+또는 배치 파일 사용:
+```bash
+.\build-multi-arch.bat
+```
+
+### 개별 아키텍처 빌드
+
+특정 아키텍처만 빌드하려면:
+```bash
+# x64 (64비트 Intel/AMD)
+npm run build:win:x64
+
+# ia32 (32비트 Intel/AMD)
+npm run build:win:ia32
+
+# arm64 (64비트 ARM)
+npm run build:win:arm64
+
+# arm64 (64비트 ARM)
+npm run build:win:arm64
+```
 
 ### 1. 앱 패키징
 
@@ -79,6 +110,16 @@ npx electron-packager . "KoreaUniversitySugang" --platform=win32 --arch=x64 --ou
 
 ## 설치 방법
 
+### 아키텍처 확인
+
+설치 전 시스템 아키텍처를 확인하세요:
+1. Windows 키 + R을 눌러 "실행" 창 열기
+2. `msinfo32` 입력 후 확인
+3. "시스템 요약"에서 "시스템 종류" 확인:
+   - x64-based PC: x64 버전 설치
+   - x86-based PC: ia32 버전 설치
+   - ARM-based PC: arm64 버전 설치
+
 ### 자동 설치 (권장)
 
 1. `install.bat` 파일을 관리자 권한으로 실행
@@ -86,8 +127,12 @@ npx electron-packager . "KoreaUniversitySugang" --platform=win32 --arch=x64 --ou
 
 ### 수동 설치
 
-1. `dist\고려대학교 수강신청-win32-x64` 폴더를 원하는 위치로 복사
-2. `고려대학교 수강신청.exe` 실행
+1. 시스템에 맞는 아키텍처 버전 선택:
+   - `dist\고려대학교 수강신청-x64.exe` (64비트 Intel/AMD)
+   - `dist\고려대학교 수강신청-ia32.exe` (32비트 Intel/AMD)
+   - `dist\고려대학교 수강신청-arm64.exe` (64비트 ARM)
+2. 선택한 파일을 원하는 위치로 복사
+3. 실행 파일 실행
 
 ## 제거 방법
 
@@ -135,8 +180,8 @@ PowerShell을 관리자 권한으로 실행:
 # 1. 의존성 설치
 npm install
 
-# 2. 앱 패키징
-npx electron-packager . "고려대학교 수강신청" --platform=win32 --arch=x64 --out=dist --overwrite
+# 2. 다중 아키텍처 빌드
+npm run build:win:all
 
 # 3. 인스톨러 생성 (관리자 권한 필요)
 .\create-simple-installer.ps1
@@ -147,8 +192,9 @@ npx electron-packager . "고려대학교 수강신청" --platform=win32 --arch=x
 빌드 완료 후 다음 파일들이 생성됩니다:
 
 #### 포터블 버전
-- `dist\고려대학교 수강신청-win32-x64\` - 한글 이름 포터블 버전
-- `dist\KoreaUniversitySugang-win32-x64\` - 영어 이름 포터블 버전
+- `dist\고려대학교 수강신청-x64.exe` - 64비트 Intel/AMD
+- `dist\고려대학교 수강신청-ia32.exe` - 32비트 Intel/AMD
+- `dist\고려대학교 수강신청-arm64.exe` - 64비트 ARM
 
 #### 인스톨러
 - `install.bat` - 배치 파일 설치 스크립트
@@ -160,6 +206,14 @@ npx electron-packager . "고려대학교 수강신청" --platform=win32 --arch=x
 - `dist\KoreaUniversitySugang.zip` - 압축 파일 (7-Zip으로 생성)
 
 ## 문제 해결
+
+### 아키텍처 호환성 문제
+
+"현재 PC에서는 이 앱을 실행할 수 없습니다" 오류가 발생하는 경우:
+1. 시스템 아키텍처 확인 (msinfo32)
+2. 해당 아키텍처에 맞는 버전 다운로드
+3. 32비트 시스템의 경우 ia32 버전 사용
+4. ARM 시스템의 경우 arm64 버전 사용
 
 ### 빌드 오류
 
@@ -188,6 +242,12 @@ MIT License
 버그 리포트나 기능 제안은 GitHub Issues를 이용해주세요.
 
 ## 변경 로그
+
+### v1.1.1
+- 🖥️ 다중 아키텍처 지원 추가 (x64, ia32, arm64)
+- 🔧 아키텍처별 빌드 스크립트 추가
+- 📦 다중 아키텍처 인스톨러 지원
+- 🐛 아키텍처 호환성 문제 해결
 
 ### v1.1.0
 - 🎯 정확한 자동 로그인 타이밍 (59분 59초 999밀리초)

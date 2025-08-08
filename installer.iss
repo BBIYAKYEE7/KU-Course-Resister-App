@@ -5,6 +5,7 @@
 #define MyAppVersion "1.1.0"
 #define MyAppPublisher "BBIYAKYEE7"
 #define MyAppURL "ku-course-resister.vercel.app"
+#define MyAppDescription "고려대학교 수강신청 도우미 - 자동로그인 기능 포함"
 #define MyAppExeName "고려대학교 수강신청.exe"
 #define MyAppAssocName MyAppName + ""
 #define MyAppAssocExt ".msi"
@@ -16,26 +17,24 @@
 AppId={{559D251D-4642-4640-86C7-160C05FF2508}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-;AppVerName={#MyAppName} {#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
+AppComments={#MyAppDescription}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
-; "ArchitecturesAllowed=x64compatible" specifies that Setup cannot run
-; on anything but x64 and Windows 11 on Arm.
-ArchitecturesAllowed=x64compatible
-; "ArchitecturesInstallIn64BitMode=x64compatible" requests that the
-; install be done in "64-bit mode" on x64 or Windows 11 on Arm,
-; meaning it should use the native 64-bit Program Files directory and
-; the 64-bit view of the registry.
-ArchitecturesInstallIn64BitMode=x64compatible
+; 모든 아키텍처 지원
+;ArchitecturesAllowed=x64compatible
+;ArchitecturesInstallIn64BitMode=x64compatible
 ChangesAssociations=yes
 DisableProgramGroupPage=no
 ; Uncomment the following line to run in non administrative install mode (install for current user only).
 ;PrivilegesRequired=lowest
+; 자동로그인 기능을 위한 권한 설정
+PrivilegesRequired=admin
 OutputBaseFilename=KoreaUniversitySugang-Setup-v1.1.0
 SolidCompression=yes
 WizardStyle=modern
@@ -46,21 +45,25 @@ Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "autologin"; Description: "자동로그인 기능 활성화"; GroupDescription: "자동로그인 설정"; Flags: checkedonce
+Name: "startup"; Description: "시작 시 자동 실행"; GroupDescription: "자동실행 설정"; Flags: unchecked
 
 [Files]
 ; 메인 실행 파일
-Source: "dist\고려대학교 수강신청-win32-x64\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-; 모든 파일과 폴더 복사
-Source: "dist\고려대학교 수강신청-win32-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Registry]
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocExt}\OpenWithProgids"; ValueType: string; ValueName: "{#MyAppAssocKey}"; ValueData: ""; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}"; ValueType: string; ValueName: ""; ValueData: "{#MyAppAssocName}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+; 자동로그인 관련 레지스트리 설정
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#MyAppName}"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: startup
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\자동로그인 설정"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--setup-login"
+Name: "{group}\자동로그인 테스트"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--test-login"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 

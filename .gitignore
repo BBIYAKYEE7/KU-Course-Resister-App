@@ -124,7 +124,6 @@ jspm_packages/
 .pnp.*
 
 # Electron specific
-dist/
 build/
 out/
 *.exe
