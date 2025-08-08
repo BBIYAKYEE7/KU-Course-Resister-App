@@ -525,14 +525,15 @@ function createMenu() {
           label: '업데이트 확인',
           click: async () => {
             try {
-              const response = await axios.get('https://api.github.com/repos/BBIYAKYEE7/KU-Course-Resister-App/releases/latest', {
+              const response = await axios.get('https://api.github.com/repos/BBIYAKYEE7/KU-Course-Resister-App/releases', {
                 timeout: 10000,
                 headers: {
-                  'User-Agent': 'Sugang-App-AutoUpdate'
+                  'User-Agent': 'Sugang-App-AutoUpdate',
+                  'Accept': 'application/vnd.github.v3+json'
                 }
               });
               
-              const latestVersion = response.data.tag_name;
+              const latestVersion = response.data[0]?.tag_name;
               const currentVersion = app.getVersion();
               
               if (latestVersion && latestVersion !== currentVersion) {
