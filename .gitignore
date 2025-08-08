@@ -125,7 +125,6 @@ jspm_packages/
 # Electron specific
 build/
 out/
-*.exe
 *.msi
 *.dmg
 *.pkg
