@@ -109,7 +109,7 @@ async function createWindow() {
         `).catch(error => {
           console.log('팝업 스크립트 주입 실패:', error.message);
         });
-      }, 2000);
+      }, 500);
     }
     
     // 서버시간 오버레이는 한 번만 생성 (새로고침 시에도 유지)
@@ -117,7 +117,7 @@ async function createWindow() {
       setTimeout(() => {
         console.log('페이지 로드 완료 - 서버시간 오버레이 생성 (한 번만)');
         createInlineServerTime();
-      }, 1000);
+      }, 500);
     }
     
     // 저장된 로그인 정보가 있으면 로그인 폼만 미리 입력 (자동 제출 안함)
@@ -125,7 +125,7 @@ async function createWindow() {
       setTimeout(() => {
         console.log('페이지 로드 완료 - 로그인 폼 미리 입력');
         injectFormFillOnly();
-      }, 1000); // 1초 후 폼 입력
+      }, 300); // 0.3초 후 폼 입력
     } else {
       // 로그인 정보가 없으면 자동으로 설정 다이얼로그 표시 (즉시 로그인 없음)
       setTimeout(async () => {
@@ -137,9 +137,9 @@ async function createWindow() {
           console.log('자동 설정 완료 - 로그인 폼만 미리 입력 (즉시 로그인 안함)');
           setTimeout(() => {
             injectFormFillOnly();
-          }, 1000);
+          }, 300);
         }
-      }, 2000); // 2초 후 설정 다이얼로그 표시
+      }, 500); // 0.5초 후 설정 다이얼로그 표시
     }
   });
 
@@ -157,7 +157,7 @@ async function createWindow() {
       setTimeout(() => {
         console.log('DOM 준비 완료 - 서버시간 오버레이 생성 (한 번만)');
         createInlineServerTime();
-      }, 500);
+      }, 300);
     }
     
     // 저장된 로그인 정보가 있으면 로그인 폼만 미리 입력 (자동 제출 안함)
@@ -179,7 +179,7 @@ async function createWindow() {
             injectFormFillOnly();
           }, 500);
         }
-      }, 1000); // 1초 후 설정 다이얼로그 표시
+      }, 500); // 0.5초 후 설정 다이얼로그 표시
     }
   });
 
@@ -326,6 +326,73 @@ function createMenu() {
     {
       label: '수강신청',
       submenu: [
+        {
+          label: '수강신청 매크로',
+          submenu: [
+            {
+              label: '매크로 시작',
+              accelerator: 'CmdOrCtrl+M',
+              click: () => {
+                startSugangMacro();
+              }
+            },
+            {
+              label: '매크로 중지',
+              accelerator: 'CmdOrCtrl+Shift+M',
+              click: () => {
+                stopSugangMacro();
+              }
+            },
+            {
+              label: '과목 설정',
+              click: () => {
+                showSubjectSetupDialog();
+              }
+            },
+            {
+              label: '매크로 상태 확인',
+              click: () => {
+                showMacroStatus();
+              }
+            },
+            { type: 'separator' },
+            {
+              label: '고속 접속 모드',
+              type: 'checkbox',
+              checked: store.get('fastAccessMode', false),
+              click: (menuItem) => {
+                store.set('fastAccessMode', menuItem.checked);
+                if (menuItem.checked) {
+                  dialog.showMessageBox(mainWindow, {
+                    type: 'info',
+                    title: '고속 접속 모드',
+                    message: '고속 접속 모드가 활성화되었습니다.',
+                    detail: '수강신청 시 가장 빠른 속도로 접속을 시도합니다.',
+                    buttons: ['확인']
+                  });
+                }
+              }
+            },
+            {
+              label: '매크로 우회 모드',
+              type: 'checkbox',
+              checked: store.get('bypassMode', true),
+              click: (menuItem) => {
+                store.set('bypassMode', menuItem.checked);
+                if (menuItem.checked) {
+                  dialog.showMessageBox(mainWindow, {
+                    type: 'info',
+                    title: '매크로 우회 모드',
+                    message: '매크로 우회 모드가 활성화되었습니다.',
+                    detail: '자동입력 방지와 5회 이상 입력 제한을 우회합니다.',
+                    buttons: ['확인']
+                  });
+                }
+              }
+            }
+          ]
+        },
+        { type: 'separator' },
         {
           label: '새로고침',
           accelerator: 'CmdOrCtrl+R',
@@ -1140,14 +1207,14 @@ function injectFormFillOnly() {
         const buttonClicked = clickLoginButton();
         
         if (buttonClicked) {
-          const formWaitTimes = [200, 500, 1000, 1500];
+          const formWaitTimes = [100, 200, 400, 600];
           formWaitTimes.forEach((delay) => {
             setTimeout(() => {
               fillLoginFormOnly();
             }, delay);
           });
         } else {
-          const retryTimes = [1000, 2000, 3000];
+          const retryTimes = [500, 1000, 1500];
           retryTimes.forEach((delay) => {
             setTimeout(() => {
               const success = fillLoginFormOnly();
@@ -1157,7 +1224,7 @@ function injectFormFillOnly() {
             }, delay);
           });
         }
-      }, 500);
+      }, 200);
       
       // DOM 변화 감지
       const observer = new MutationObserver(() => {
@@ -1651,12 +1718,12 @@ function injectEnhancements() {
               setTimeout(() => {
                 loginButton.click();
                 // 로그인 버튼 클릭 완료
-              }, 300); // 0.3초로 단축
+              }, 100); // 0.1초로 단축
             } else {
               // 자동 로그인 버튼 클릭 불가 (보안상 상세 정보 제거)
             }
           }
-        }, 200); // 입력 검증 시간 단축
+        }, 100); // 입력 검증 시간 단축
         
         return filled;
       }
@@ -1678,8 +1745,8 @@ function injectEnhancements() {
         if (buttonClicked) {
           // 로그인 버튼 클릭 후 폼이 나타날 때까지 대기
           
-          // 3단계: 로그인 폼 나타난 후 자동 입력 (빠른 시도)
-          const formWaitTimes = [200, 500, 1000, 1500];
+          // 3단계: 로그인 폼 나타난 후 자동 입력 (최대한 빠른 시도)
+          const formWaitTimes = [50, 100, 200, 300];
           formWaitTimes.forEach((delay, index) => {
             setTimeout(() => {
               // 로그인 폼 입력 시도
@@ -1691,7 +1758,7 @@ function injectEnhancements() {
           });
         } else {
           // 로그인 버튼을 못 찾은 경우 계속 시도 (빠른 재시도)
-          const retryTimes = [1000, 2000, 3000, 4000];
+          const retryTimes = [200, 400, 600, 800];
           retryTimes.forEach((delay, index) => {
             setTimeout(() => {
               // 자동 로그인 재시도
@@ -1702,7 +1769,7 @@ function injectEnhancements() {
             }, delay);
           });
         }
-      }, 500); // 페이지 로딩 후 0.5초 대기 (빠른 시작)
+      }, 50); // 페이지 로딩 후 0.05초 대기 (최대한 빠른 시작)
       
       // DOM 변화 감지하여 동적으로 로그인 필드가 나타날 때도 대응
       const observer = new MutationObserver(() => {
@@ -1714,10 +1781,10 @@ function injectEnhancements() {
         subtree: true
       });
       
-      // 5초 후 관찰 중단
+      // 3초 후 관찰 중단
       setTimeout(() => {
         observer.disconnect();
-      }, 5000); // DOM 감지 시간 단축
+      }, 3000); // DOM 감지 시간 단축
       
       // 페이지 스타일 개선
       setTimeout(() => {
@@ -1732,7 +1799,7 @@ function injectEnhancements() {
             btn.style.borderRadius = '6px';
           }
         });
-      }, 2000);
+      }, 1000);
       
     })();
   `;
@@ -1766,7 +1833,7 @@ async function checkFirstRun() {
         if (mainWindow && mainWindow.webContents) {
           injectFormFillOnly();
         }
-      }, 1500); // 1.5초로 단축
+      }, 800); // 0.8초로 단축
     } else {
       console.log('로그인 설정을 건너뛰었습니다.');
     }
@@ -2408,6 +2475,602 @@ function setupAutoUpdate() {
     }, 24 * 60 * 60 * 1000);
   }, timeUntilMidnight);
 }
+
+// 수강신청 매크로 관련 전역 변수
+let macroRunning = false;
+let macroInterval = null;
+let macroAttempts = 0;
+let selectedSubjects = [];
+
+// 수강신청 매크로 시작
+function startSugangMacro() {
+  if (macroRunning) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      title: '매크로 실행 중',
+      message: '매크로가 이미 실행 중입니다.',
+      buttons: ['확인']
+    });
+    return;
+  }
+
+  const subjects = store.get('selectedSubjects', []);
+  if (subjects.length === 0) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      title: '과목 미설정',
+      message: '수강신청할 과목이 설정되지 않았습니다.',
+      detail: '수강신청 매크로 > 과목 설정에서 과목을 먼저 설정해주세요.',
+      buttons: ['과목 설정', '취소']
+    }).then((result) => {
+      if (result.response === 0) {
+        showSubjectSetupDialog();
+      }
+    });
+    return;
+  }
+
+  macroRunning = true;
+  macroAttempts = 0;
+  selectedSubjects = subjects;
+
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: '수강신청 매크로 시작',
+    message: '수강신청 매크로가 시작되었습니다.',
+    detail: `설정된 과목: ${subjects.length}개\n고속 접속 모드: ${store.get('fastAccessMode', false) ? '활성화' : '비활성화'}\n매크로 우회 모드: ${store.get('bypassMode', true) ? '활성화' : '비활성화'}`,
+    buttons: ['확인']
+  });
+
+  // 매크로 실행
+  executeSugangMacro();
+}
+
+// 수강신청 매크로 중지
+function stopSugangMacro() {
+  if (!macroRunning) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: '매크로 미실행',
+      message: '실행 중인 매크로가 없습니다.',
+      buttons: ['확인']
+    });
+    return;
+  }
+
+  macroRunning = false;
+  if (macroInterval) {
+    clearInterval(macroInterval);
+    macroInterval = null;
+  }
+
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: '수강신청 매크로 중지',
+    message: '수강신청 매크로가 중지되었습니다.',
+    detail: `총 시도 횟수: ${macroAttempts}회`,
+    buttons: ['확인']
+  });
+}
+
+// 수강신청 매크로 실행
+function executeSugangMacro() {
+  if (!macroRunning) return;
+
+  const fastAccessMode = store.get('fastAccessMode', false);
+  const bypassMode = store.get('bypassMode', true);
+  const interval = fastAccessMode ? 100 : 500; // 고속 모드: 100ms, 일반 모드: 500ms
+
+  macroInterval = setInterval(() => {
+    if (!macroRunning) return;
+
+    macroAttempts++;
+    console.log(`매크로 시도 ${macroAttempts}회`);
+
+    // 매크로 스크립트 주입
+    injectSugangMacroScript();
+  }, interval);
+}
+
+// 수강신청 매크로 스크립트 주입
+function injectSugangMacroScript() {
+  if (!mainWindow || !mainWindow.webContents) return;
+
+  const subjects = store.get('selectedSubjects', []);
+  const bypassMode = store.get('bypassMode', true);
+  const fastAccessMode = store.get('fastAccessMode', false);
+
+  const script = `
+    (function() {
+      // 매크로 우회 기능
+      function bypassMacroDetection() {
+        if (!${bypassMode}) return;
+        
+        // 자동입력 방지 우회
+        const antiMacroElements = document.querySelectorAll('*');
+        antiMacroElements.forEach(element => {
+          // 자동입력 방지 관련 속성 제거
+          if (element.hasAttribute('data-anti-macro')) {
+            element.removeAttribute('data-anti-macro');
+          }
+          if (element.hasAttribute('data-bot-detection')) {
+            element.removeAttribute('data-bot-detection');
+          }
+          
+          // 자동입력 방지 스크립트 비활성화
+          const scripts = element.querySelectorAll('script');
+          scripts.forEach(script => {
+            if (script.textContent.includes('anti-macro') || 
+                script.textContent.includes('bot-detection') ||
+                script.textContent.includes('자동입력') ||
+                script.textContent.includes('매크로')) {
+              script.remove();
+            }
+          });
+        });
+        
+        // 5회 이상 입력 제한 우회
+        const inputCounters = document.querySelectorAll('[data-input-count], [data-attempt-count]');
+        inputCounters.forEach(counter => {
+          counter.setAttribute('data-input-count', '0');
+          counter.setAttribute('data-attempt-count', '0');
+        });
+        
+        // 입력 제한 관련 변수 초기화
+        if (window.inputAttempts) window.inputAttempts = 0;
+        if (window.macroAttempts) window.macroAttempts = 0;
+        if (window.attemptCount) window.attemptCount = 0;
+      }
+      
+      // 서버 대기 시간 우회
+      function bypassServerDelay() {
+        // 대기 시간 관련 타이머 제거
+        const timers = window.setTimeout ? window.setTimeout : [];
+        if (Array.isArray(timers)) {
+          timers.forEach(timer => {
+            if (timer && timer.delay && timer.delay > 1000) {
+              clearTimeout(timer);
+            }
+          });
+        }
+        
+        // 서버 응답 대기 시간 단축
+        if (window.XMLHttpRequest) {
+          const originalOpen = window.XMLHttpRequest.prototype.open;
+          window.XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
+            const xhr = this;
+            originalOpen.call(xhr, method, url, async, user, password);
+            xhr.timeout = ${fastAccessMode ? 1000 : 3000}; // 고속 모드: 1초, 일반 모드: 3초
+          };
+        }
+      }
+      
+      // 수강신청 페이지 접근
+      function navigateToSugang() {
+        // 수강신청 메뉴 찾기 및 클릭
+        const sugangSelectors = [
+          'a[href*="sugang"]',
+          'a[href*="course"]',
+          'a[href*="register"]',
+          'a[onclick*="sugang"]',
+          'a[onclick*="course"]',
+          'button[onclick*="sugang"]',
+          'button[onclick*="course"]',
+          'li:contains("수강신청")',
+          'a:contains("수강신청")',
+          'button:contains("수강신청")'
+        ];
+        
+        let sugangLink = null;
+        for (const selector of sugangSelectors) {
+          try {
+            sugangLink = document.querySelector(selector);
+            if (sugangLink && sugangLink.offsetParent !== null) {
+              break;
+            }
+          } catch (e) {
+            // continue
+          }
+        }
+        
+        // 텍스트로 찾기
+        if (!sugangLink) {
+          const allLinks = document.querySelectorAll('a, button, li, td');
+          for (let element of allLinks) {
+            const text = (element.textContent || element.innerText || '').toLowerCase().trim();
+            if (text.includes('수강신청') || text.includes('course') || text.includes('register')) {
+              sugangLink = element;
+              break;
+            }
+          }
+        }
+        
+        if (sugangLink) {
+          sugangLink.click();
+          return true;
+        }
+        
+        return false;
+      }
+      
+      // 과목 검색 및 수강신청
+      function searchAndRegisterSubjects() {
+        const subjects = ${JSON.stringify(subjects)};
+        
+        subjects.forEach(subject => {
+          // 과목 검색
+          const searchInput = document.querySelector('input[name="search"], input[placeholder*="과목"], input[placeholder*="검색"]');
+          if (searchInput) {
+            searchInput.value = subject.code || subject.name || '';
+            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+            searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            // 검색 버튼 클릭
+            const searchButton = document.querySelector('button[type="submit"], input[type="submit"], button:contains("검색")');
+            if (searchButton) {
+              searchButton.click();
+            }
+            
+            // 검색 결과에서 과목 찾기 및 수강신청
+            setTimeout(() => {
+              const subjectRows = document.querySelectorAll('tr, .subject-row, .course-row');
+              subjectRows.forEach(row => {
+                const rowText = row.textContent || '';
+                if (rowText.includes(subject.code) || rowText.includes(subject.name)) {
+                  // 수강신청 버튼 찾기
+                  const registerButton = row.querySelector('button:contains("수강신청"), input[value*="수강신청"], .register-btn');
+                  if (registerButton) {
+                    registerButton.click();
+                  }
+                }
+              });
+            }, 500);
+          }
+        });
+      }
+      
+      // 매크로 우회 실행
+      bypassMacroDetection();
+      bypassServerDelay();
+      
+      // 수강신청 페이지로 이동
+      if (!navigateToSugang()) {
+        // 이미 수강신청 페이지에 있는 경우
+        searchAndRegisterSubjects();
+      }
+      
+    })();
+  `;
+
+  mainWindow.webContents.executeJavaScript(script);
+}
+
+// 과목 설정 다이얼로그
+function showSubjectSetupDialog() {
+  const setupWindow = new BrowserWindow({
+    width: 600,
+    height: 500,
+    modal: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    },
+    icon: path.join(__dirname, 'assets/icon.ico')
+  });
+
+  const savedSubjects = store.get('selectedSubjects', []);
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>수강신청 과목 설정</title>
+      <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css');
+        
+        body {
+          font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+          margin: 0;
+          padding: 30px;
+          background: linear-gradient(135deg, #8B0000, #A0002A);
+          color: white;
+          min-height: 440px;
+        }
+        
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+        }
+        
+        .header h2 {
+          margin: 0;
+          font-size: 24px;
+          font-weight: 700;
+        }
+        
+        .header p {
+          margin: 5px 0 0 0;
+          font-size: 14px;
+          opacity: 0.8;
+        }
+        
+        .subject-form {
+          background: rgba(255,255,255,0.1);
+          padding: 20px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        }
+        
+        .form-row {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 15px;
+        }
+        
+        .form-group {
+          flex: 1;
+        }
+        
+        label {
+          display: block;
+          margin-bottom: 5px;
+          font-weight: 600;
+          font-size: 12px;
+        }
+        
+        input {
+          width: 100%;
+          padding: 8px;
+          border: none;
+          border-radius: 4px;
+          font-size: 12px;
+          box-sizing: border-box;
+          font-family: 'Pretendard', sans-serif;
+        }
+        
+        .add-btn {
+          background: #FFD700;
+          color: #8B0000;
+          border: none;
+          padding: 8px 15px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          margin-top: 20px;
+        }
+        
+        .subjects-list {
+          background: rgba(255,255,255,0.1);
+          padding: 15px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+          max-height: 200px;
+          overflow-y: auto;
+        }
+        
+        .subject-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px;
+          background: rgba(255,255,255,0.1);
+          border-radius: 4px;
+          margin-bottom: 5px;
+        }
+        
+        .subject-info {
+          flex: 1;
+        }
+        
+        .subject-code {
+          font-weight: 600;
+          font-size: 12px;
+        }
+        
+        .subject-name {
+          font-size: 11px;
+          opacity: 0.8;
+        }
+        
+        .remove-btn {
+          background: #ff4444;
+          color: white;
+          border: none;
+          padding: 4px 8px;
+          border-radius: 3px;
+          font-size: 10px;
+          cursor: pointer;
+        }
+        
+        .button-group {
+          display: flex;
+          gap: 10px;
+        }
+        
+        button {
+          flex: 1;
+          padding: 12px;
+          border: none;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: 'Pretendard', sans-serif;
+        }
+        
+        .btn-primary {
+          background: #FFD700;
+          color: #8B0000;
+        }
+        
+        .btn-secondary {
+          background: rgba(255,255,255,0.2);
+          color: white;
+          border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        button:hover {
+          opacity: 0.9;
+          transform: translateY(-1px);
+        }
+        
+        .info {
+          font-size: 12px;
+          text-align: center;
+          opacity: 0.7;
+          margin-top: 15px;
+          line-height: 1.4;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h2>📚 수강신청 과목 설정</h2>
+        <p>수강신청할 과목들을 추가해주세요</p>
+      </div>
+      
+      <div class="subject-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="subjectCode">과목 코드</label>
+            <input type="text" id="subjectCode" placeholder="예: CSE101">
+          </div>
+          <div class="form-group">
+            <label for="subjectName">과목명</label>
+            <input type="text" id="subjectName" placeholder="예: 프로그래밍 기초">
+          </div>
+        </div>
+        <button class="add-btn" onclick="addSubject()">과목 추가</button>
+      </div>
+      
+      <div class="subjects-list" id="subjectsList">
+        <div style="text-align: center; opacity: 0.7; font-size: 12px;">
+          추가된 과목이 없습니다
+        </div>
+      </div>
+      
+      <div class="button-group">
+        <button class="btn-secondary" onclick="cancelSetup()">취소</button>
+        <button class="btn-primary" onclick="saveSubjects()">저장</button>
+      </div>
+      
+      <div class="info">
+        과목 코드와 과목명을 입력하면 매크로가 자동으로 해당 과목을 수강신청합니다.<br>
+        여러 과목을 추가할 수 있으며, 매크로는 설정된 순서대로 시도합니다.
+      </div>
+      
+      <script>
+        const { ipcRenderer } = require('electron');
+        
+        let subjects = ${JSON.stringify(savedSubjects)};
+        
+        function addSubject() {
+          const code = document.getElementById('subjectCode').value.trim();
+          const name = document.getElementById('subjectName').value.trim();
+          
+          if (!code && !name) {
+            alert('과목 코드 또는 과목명을 입력해주세요.');
+            return;
+          }
+          
+          const subject = { code, name };
+          subjects.push(subject);
+          
+          // 입력 필드 초기화
+          document.getElementById('subjectCode').value = '';
+          document.getElementById('subjectName').value = '';
+          
+          updateSubjectsList();
+        }
+        
+        function removeSubject(index) {
+          subjects.splice(index, 1);
+          updateSubjectsList();
+        }
+        
+        function updateSubjectsList() {
+          const list = document.getElementById('subjectsList');
+          
+          if (subjects.length === 0) {
+            list.innerHTML = '<div style="text-align: center; opacity: 0.7; font-size: 12px;">추가된 과목이 없습니다</div>';
+            return;
+          }
+          
+          list.innerHTML = subjects.map((subject, index) => \`
+            <div class="subject-item">
+              <div class="subject-info">
+                <div class="subject-code">\${subject.code || '코드 없음'}</div>
+                <div class="subject-name">\${subject.name || '과목명 없음'}</div>
+              </div>
+              <button class="remove-btn" onclick="removeSubject(\${index})">삭제</button>
+            </div>
+          \`).join('');
+        }
+        
+        function saveSubjects() {
+          ipcRenderer.send('subjects-setup-complete', subjects);
+        }
+        
+        function cancelSetup() {
+          ipcRenderer.send('subjects-setup-complete', null);
+        }
+        
+        // 초기 목록 표시
+        updateSubjectsList();
+        
+        // 첫 번째 입력창에 포커스
+        document.getElementById('subjectCode').focus();
+      </script>
+    </body>
+    </html>
+  `;
+
+  setupWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+
+  ipcMain.once('subjects-setup-complete', (event, subjects) => {
+    setupWindow.close();
+    if (subjects) {
+      store.set('selectedSubjects', subjects);
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: '과목 설정 완료',
+        message: `${subjects.length}개의 과목이 설정되었습니다.`,
+        buttons: ['확인']
+      });
+    }
+  });
+
+  setupWindow.on('closed', () => {
+    // 다이얼로그가 닫힌 경우 처리
+  });
+}
+
+// 매크로 상태 확인
+function showMacroStatus() {
+  const subjects = store.get('selectedSubjects', []);
+  const fastAccessMode = store.get('fastAccessMode', false);
+  const bypassMode = store.get('bypassMode', true);
+  
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: '수강신청 매크로 상태',
+    message: '현재 매크로 설정 상태',
+    detail: `매크로 실행 상태: ${macroRunning ? '실행 중' : '중지됨'}\n` +
+           `설정된 과목: ${subjects.length}개\n` +
+           `고속 접속 모드: ${fastAccessMode ? '활성화' : '비활성화'}\n` +
+           `매크로 우회 모드: ${bypassMode ? '활성화' : '비활성화'}\n` +
+           `총 시도 횟수: ${macroAttempts}회\n\n` +
+           `설정된 과목 목록:\n${subjects.map((subject, index) => 
+             `${index + 1}. ${subject.code || '코드 없음'} - ${subject.name || '과목명 없음'}`
+           ).join('\n')}`,
+    buttons: ['확인']
+  });
+}
+
 app.whenReady().then(() => {
   createWindow();
   setupAutoUpdate(); // 자동 업데이트 시스템 활성화

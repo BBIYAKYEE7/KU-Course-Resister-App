@@ -1,8 +1,21 @@
+:root {
+  --bg: #0b0c0f;
+  --text: #e6e8ec;
+  --muted: #a4a8b4;
+  --card: #14161b;
+  --accent: #7a5cff;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  background: var(--bg);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -10,4 +23,85 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* Utilities */
+.container {
+  width: min(1120px, 92%);
+  margin: 0 auto;
+}
+
+.section {
+  padding: 96px 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  transform: translateY(12px);
+  opacity: 0.001;
+  will-change: transform, opacity, filter;
+}
+
+.card.appear {
+  animation: fadeUp 700ms cubic-bezier(.2,.7,.1,1) forwards;
+}
+
+/* Section reveal */
+.reveal { opacity: 0.001; transform: translateY(10px); filter: brightness(.9) blur(4px); }
+.reveal.appear { animation: fadeUp 700ms cubic-bezier(.2,.7,.1,1) forwards; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); filter: blur(6px); }
+  to   { opacity: 1; transform: translateY(0);    filter: blur(0); }
+}
+
+.btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 14px 22px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease, opacity .2s ease;
+  box-shadow: 0 10px 24px rgba(122,92,255,.35);
+}
+
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: translateY(0); }
+
+.muted { color: var(--muted); }
+
+.footer {
+  padding: 64px 0 96px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.footer .icons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.footer .icons a {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #1c2026;
+  color: #d6d8de;
+  text-decoration: none;
 }
