@@ -2,8 +2,8 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "고려대학교 수강신청"
-#define MyAppVersion "1.1.0"
-#define MyAppPublisher "BBIYAKYEE7"
+#define MyAppVersion "1.1.2"
+#define MyAppPublisher "BBIYAKYEE7(김재윤)"
 #define MyAppURL "ku-course-resister.vercel.app"
 #define MyAppDescription "고려대학교 수강신청 도우미 - 자동로그인 기능 포함"
 #define MyAppExeName "고려대학교 수강신청.exe"
@@ -35,7 +35,7 @@ DisableProgramGroupPage=no
 ;PrivilegesRequired=lowest
 ; 자동로그인 기능을 위한 권한 설정
 PrivilegesRequired=admin
-OutputBaseFilename=KoreaUniversitySugang-Setup-v1.1.0
+OutputBaseFilename=KoreaUniversitySugang-Setup-v1.1.2
 SolidCompression=yes
 WizardStyle=modern
 
@@ -49,8 +49,8 @@ Name: "autologin"; Description: "자동로그인 기능 활성화"; GroupDescrip
 Name: "startup"; Description: "시작 시 자동 실행"; GroupDescription: "자동실행 설정"; Flags: unchecked
 
 [Files]
-; 메인 실행 파일
-Source: "dist\\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; 메인 실행 파일 (x64 버전 사용)
+Source: "dist\\고려대학교 수강신청-x64.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
 
 [Registry]
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocExt}\OpenWithProgids"; ValueType: string; ValueName: "{#MyAppAssocKey}"; ValueData: ""; Flags: uninsdeletevalue
