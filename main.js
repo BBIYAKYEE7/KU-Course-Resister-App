@@ -603,7 +603,10 @@ function createMenu() {
               const latestVersion = response.data[0]?.tag_name;
               const currentVersion = app.getVersion();
               
-              if (latestVersion && latestVersion !== currentVersion) {
+              // 태그명에서 'v' 제거하여 버전 비교
+              const cleanLatestVersion = latestVersion ? latestVersion.replace('v', '') : null;
+              
+              if (latestVersion && cleanLatestVersion !== currentVersion) {
                 dialog.showMessageBox(mainWindow, {
                   type: 'info',
                   title: '업데이트 확인',

@@ -50,7 +50,7 @@ Name: "startup"; Description: "시작 시 자동 실행"; GroupDescription: "자
 
 [Files]
 ; 메인 실행 파일 (x64 버전 사용)
-Source: "dist\\고려대학교 수강신청-x64.exe"; DestDir: "{app}"; DestName: "{#MyAppExeName}"; Flags: ignoreversion
+Source: "dist\\win-unpacked\\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Registry]
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocExt}\OpenWithProgids"; ValueType: string; ValueName: "{#MyAppAssocKey}"; ValueData: ""; Flags: uninsdeletevalue
